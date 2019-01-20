@@ -14,13 +14,22 @@ const (
 )
 
 func number_server(add_number <-chan int, control <-chan int, number chan<- int) {
-	var i = 0
+	var i = 100
 
 	// This for-select pattern is one you will become familiar with if you're using go "correctly".
 	for {
 		select {
-			// TODO: receive different messages and handle them correctly
-			// You will at least need to update the number and handle control signals.
+			case buff := <-add_number:
+				i+=buff;
+				break;
+				
+			case temp := <-control: // control signals will lead us here:
+				switch temp {
+					case GetNumber:
+						number <- i;
+					case Exit:
+						break
+				}			
 		}
 	}
 }
@@ -29,27 +38,38 @@ func incrementing(add_number chan<-int, finished chan<- bool) {
 	for j := 0; j<1000000; j++ {
 		add_number <- 1
 	}
-	//TODO: signal that the goroutine is finished
+	finished<-true
 }
 
 func decrementing(add_number chan<- int, finished chan<- bool) {
 	for j := 0; j<1000000; j++ {
 		add_number <- -1
 	}
-	//TODO: signal that the goroutine is finished
+	finished<-true
 }
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	// TODO: Construct the required channels
+	number := make(chan int) // channel for the final number
+	add_number := make(chan int,0) // channel for the number to be added.
+	finished := make(chan bool) // channel for workers to signal when finished.
+	control := make(chan int) // channel to control the number server
+	
+	
 	// Think about wether the receptions of the number should be unbuffered, or buffered with a fixed queue size.
+	// answ: the buffer size of add_number channel must be 0 (default), if it is more the worker routines are not properly synchronized anymore.
 
-	// TODO: Spawn the required goroutines
+	// Spawn the required goroutines
+	go decrementing(add_number,finished)
+	go incrementing(add_number,finished)
+	go number_server(add_number,control,number)
 
-	// TODO: block on finished from both "worker" goroutines
-
-	control<-GetNumber
+	<-finished // block until finished from the first worker
+	<-finished // block until finished from the last worker.
+	control<-GetNumber 
+	
 	Println("The magic number is:", <- number)
 	control<-Exit
 }
