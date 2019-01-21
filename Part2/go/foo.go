@@ -14,24 +14,27 @@ const (
 )
 
 func number_server(add_number <-chan int, control <-chan int, number chan<- int) {
-	var i = 100
+	var i = 0
 
 	// This for-select pattern is one you will become familiar with if you're using go "correctly".
 	for {
 		select {
 			case buff := <-add_number:
 				i+=buff;
-				break;
-				
+				break
 			case temp := <-control: // control signals will lead us here:
 				switch temp {
 					case GetNumber:
+						Println("GetNumber, ok.")
 						number <- i;
 					case Exit:
-						break
+						Println("Exit, ok.")
+						number <- 0;
+						return
 				}			
 		}
 	}
+	
 }
 
 func incrementing(add_number chan<-int, finished chan<- bool) {
@@ -71,5 +74,7 @@ func main() {
 	control<-GetNumber 
 	
 	Println("The magic number is:", <- number)
+
 	control<-Exit
+	<-number // wait until program is exited.
 }
